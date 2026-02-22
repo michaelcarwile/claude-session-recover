@@ -13,7 +13,7 @@
       "author": {
         "name": "Michael Carwile"
       },
-      "source": ".",
+      "source": "./plugin",
       "category": "productivity"
     }
   ]
