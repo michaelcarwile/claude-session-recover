@@ -77,9 +77,11 @@ ln -s /path/to/old/${SESSION_ID} "$TARGET/${SESSION_ID}"
 
 ## Uninstall
 
-1. Remove the `claude()` function from your shell rc file (look for the `# claude-session-recover` comment)
-2. Remove the plugin: `claude plugin uninstall claude-session-recover`
-3. Optionally clean up any symlinks under `~/.claude/projects/`
+```bash
+claude plugin uninstall claude-session-recover@local-marketplace
+```
+
+If you ran `/session-recover:setup`, also remove the `claude()` function from your shell rc file (look for the `# claude-session-recover` comment).
 
 ## Limitations
 
