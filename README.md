@@ -10,7 +10,7 @@ Anthropic has marked this as [NOT_PLANNED](https://github.com/anthropics/claude-
 
 ## How It Works
 
-Each session has two artifacts — a `{SESSION_ID}.jsonl` transcript file and a `{SESSION_ID}/` directory (containing `subagents/` and `tool-results/`). This plugin finds them under the old path and creates symlinks at the new expected path.
+Each session has two artifacts — a `{SESSION_ID}.jsonl` transcript file and a `{SESSION_ID}/` directory (containing `subagents/` and `tool-results/`). This plugin finds them under the old path and creates symlinks at the new expected path. It checks `~/.claude/history.jsonl` first for a fast lookup, then falls back to searching all project directories.
 
 **Three layers of recovery:**
 
@@ -22,9 +22,9 @@ Each session has two artifacts — a `{SESSION_ID}.jsonl` transcript file and a 
 
 ## Installation
 
-### Via a Marketplace (recommended for permanent install)
+### Via a marketplace (recommended)
 
-Add an entry to your local marketplace (or any marketplace you maintain) pointing to this repo:
+Claude Code plugins are installed through marketplaces. Add this plugin to your local marketplace (or any marketplace you maintain) by adding an entry to the `plugins` array in your marketplace's `.claude-plugin/marketplace.json`:
 
 ```json
 {
@@ -38,22 +38,49 @@ Add an entry to your local marketplace (or any marketplace you maintain) pointin
 }
 ```
 
-Then install:
+Then install from the command line:
 
 ```bash
-claude plugin install claude-session-recover@your-marketplace
+claude plugin install claude-session-recover@your-marketplace-name
 ```
 
-### Via `--plugin-dir` (per-session)
+If you don't have a local marketplace yet, create one:
+
+```bash
+mkdir -p ~/.claude/local-marketplace/.claude-plugin
+cat > ~/.claude/local-marketplace/.claude-plugin/marketplace.json << 'EOF'
+{
+  "name": "local-marketplace",
+  "owner": { "name": "me" },
+  "plugins": [
+    {
+      "name": "claude-session-recover",
+      "description": "Automatically recovers Claude Code sessions after a project directory is moved or renamed",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/michaelcarwile/claude-session-recover.git"
+      },
+      "category": "productivity"
+    }
+  ]
+}
+EOF
+claude plugin marketplace add ~/.claude/local-marketplace
+claude plugin install claude-session-recover@local-marketplace
+```
+
+### Via `--plugin-dir` (per-session, no install needed)
 
 ```bash
 git clone https://github.com/michaelcarwile/claude-session-recover.git
 claude --plugin-dir ./claude-session-recover
 ```
 
+This loads the plugin for a single session without permanent installation.
+
 ## Quick Start
 
-After installing the plugin, run the setup command:
+After installing the plugin, run the setup command in a Claude session:
 
 ```
 /session-recover:setup
@@ -63,7 +90,7 @@ This installs a shell function that automatically recovers sessions when you use
 
 ## Standalone Wrapper
 
-Alternatively, use the standalone `claude-resume` wrapper:
+Alternatively, use the standalone `claude-resume` wrapper without installing the plugin at all:
 
 ```bash
 # Add to your PATH
@@ -94,8 +121,8 @@ ln -s /path/to/old/${SESSION_ID} "$TARGET/${SESSION_ID}"
 ## Uninstall
 
 1. Remove the `claude()` function from your shell rc file (look for the `# claude-session-recover` comment)
-2. Remove the plugin: `/plugin uninstall claude-session-recover`
-4. Optionally clean up any symlinks under `~/.claude/projects/`
+2. Remove the plugin: `claude plugin uninstall claude-session-recover`
+3. Optionally clean up any symlinks under `~/.claude/projects/`
 
 ## Limitations
 
