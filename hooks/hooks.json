@@ -1,0 +1,16 @@
+{
+  "description": "Detects resumed sessions originally from a different project directory",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-session-path.sh",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  }
+}
