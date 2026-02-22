@@ -8,7 +8,8 @@
 
 # NOTE: no `set -e` — tests intentionally trigger non-zero exits
 
-PLUGIN_DIR=$(cd "$(dirname "$0")/.." && pwd)
+REPO_DIR=$(cd "$(dirname "$0")/.." && pwd)
+PLUGIN_DIR="$REPO_DIR/plugin"
 RECOVER="$PLUGIN_DIR/scripts/session-recover.sh"
 HOOK="$PLUGIN_DIR/scripts/check-session-path.sh"
 WRAPPER="$PLUGIN_DIR/bin/claude-resume"
