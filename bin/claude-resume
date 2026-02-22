@@ -1,0 +1,43 @@
+#!/bin/sh
+# claude-resume — Wrapper that recovers moved sessions before launching claude
+#
+# Usage: claude-resume [claude args...]
+#
+# Intercepts --resume SESSION_ID, runs session recovery, then execs claude.
+
+# Locate scripts relative to this file
+SCRIPT_DIR=$(cd "$(dirname "$0")/.." && pwd)/scripts
+RECOVER_SCRIPT="${SCRIPT_DIR}/session-recover.sh"
+
+# Parse args for --resume SESSION_ID or --resume=SESSION_ID
+SESSION_ID=""
+i=0
+for arg in "$@"; do
+  i=$((i + 1))
+  case "$arg" in
+    --resume=*)
+      SESSION_ID="${arg#--resume=}"
+      break
+      ;;
+    --resume)
+      # Next arg is the session ID — scan forward
+      next=0
+      for a2 in "$@"; do
+        next=$((next + 1))
+        if [ "$next" -eq $((i + 1)) ]; then
+          SESSION_ID="$a2"
+          break
+        fi
+      done
+      break
+      ;;
+  esac
+done
+
+# Attempt recovery if we found a session ID
+if [ -n "$SESSION_ID" ] && [ -x "$RECOVER_SCRIPT" ]; then
+  sh "$RECOVER_SCRIPT" "$SESSION_ID" "$(pwd)" 2>/dev/null || true
+fi
+
+# Always pass through to the real claude
+exec claude "$@"

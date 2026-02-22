@@ -1,0 +1,6 @@
+{
+  "name": "claude-session-recover",
+  "version": "1.0.0",
+  "description": "Automatically recovers Claude Code sessions after a project directory is moved or renamed. Creates symlinks from old session paths to the new location so `claude --resume` works seamlessly.",
+  "license": "MIT"
+}
