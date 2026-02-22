@@ -22,10 +22,27 @@ Each session has two artifacts — a `{SESSION_ID}.jsonl` transcript file and a 
 
 ## Installation
 
-Add this plugin to your Claude Code configuration:
+Add the marketplace and install the plugin from within a Claude Code session:
+
+```
+/plugin marketplace add michaelcarwile/claude-session-recover
+/plugin install claude-session-recover
+```
+
+Or from the command line:
 
 ```bash
-claude plugins add /path/to/claude-session-recover
+claude plugin marketplace add michaelcarwile/claude-session-recover
+claude plugin install claude-session-recover@claude-session-recover
+```
+
+### Local Development
+
+To load the plugin from a local clone without installing:
+
+```bash
+git clone https://github.com/michaelcarwile/claude-session-recover.git
+claude --plugin-dir ./claude-session-recover
 ```
 
 ## Quick Start
@@ -71,8 +88,9 @@ ln -s /path/to/old/${SESSION_ID} "$TARGET/${SESSION_ID}"
 ## Uninstall
 
 1. Remove the `claude()` function from your shell rc file (look for the `# claude-session-recover` comment)
-2. Remove the plugin: `claude plugins remove claude-session-recover`
-3. Optionally clean up any symlinks under `~/.claude/projects/`
+2. Remove the plugin: `/plugin uninstall claude-session-recover`
+3. Optionally remove the marketplace: `/plugin marketplace remove claude-session-recover`
+4. Optionally clean up any symlinks under `~/.claude/projects/`
 
 ## Limitations
 
