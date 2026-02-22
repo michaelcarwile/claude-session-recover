@@ -22,61 +22,18 @@ Each session has two artifacts — a `{SESSION_ID}.jsonl` transcript file and a 
 
 ## Installation
 
-### Via a marketplace (recommended)
-
-Claude Code plugins are installed through marketplaces. Add this plugin to your local marketplace (or any marketplace you maintain) by adding an entry to the `plugins` array in your marketplace's `.claude-plugin/marketplace.json`:
-
-```json
-{
-  "name": "claude-session-recover",
-  "description": "Automatically recovers Claude Code sessions after a project directory is moved or renamed",
-  "source": {
-    "source": "url",
-    "url": "https://github.com/michaelcarwile/claude-session-recover.git"
-  },
-  "category": "productivity"
-}
-```
-
-Then install from the command line:
-
 ```bash
-claude plugin install claude-session-recover@your-marketplace-name
+curl -fsSL https://raw.githubusercontent.com/michaelcarwile/claude-session-recover/main/install.sh | sh
 ```
 
-If you don't have a local marketplace yet, create one:
+This sets up a local marketplace (if you don't have one), registers the plugin, and installs it.
 
-```bash
-mkdir -p ~/.claude/local-marketplace/.claude-plugin
-cat > ~/.claude/local-marketplace/.claude-plugin/marketplace.json << 'EOF'
-{
-  "name": "local-marketplace",
-  "owner": { "name": "me" },
-  "plugins": [
-    {
-      "name": "claude-session-recover",
-      "description": "Automatically recovers Claude Code sessions after a project directory is moved or renamed",
-      "source": {
-        "source": "url",
-        "url": "https://github.com/michaelcarwile/claude-session-recover.git"
-      },
-      "category": "productivity"
-    }
-  ]
-}
-EOF
-claude plugin marketplace add ~/.claude/local-marketplace
-claude plugin install claude-session-recover@local-marketplace
-```
-
-### Via `--plugin-dir` (per-session, no install needed)
+### Try without installing
 
 ```bash
 git clone https://github.com/michaelcarwile/claude-session-recover.git
 claude --plugin-dir ./claude-session-recover
 ```
-
-This loads the plugin for a single session without permanent installation.
 
 ## Quick Start
 
