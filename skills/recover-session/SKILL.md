@@ -29,16 +29,16 @@ When a project directory is moved or renamed, Claude Code can't find existing se
    ls ~/.claude/projects/*/${SESSION_ID}.jsonl
    ```
 
-5. **Create symlinks** for both the `.jsonl` file and the session directory:
+5. **Copy files** for both the `.jsonl` file and the session directory:
    ```bash
    TARGET_DIR=~/.claude/projects/${ENCODED}
    mkdir -p "$TARGET_DIR"
 
-   # Symlink the transcript file
-   ln -s /path/to/found/${SESSION_ID}.jsonl "$TARGET_DIR/${SESSION_ID}.jsonl"
+   # Copy the transcript file
+   cp /path/to/found/${SESSION_ID}.jsonl "$TARGET_DIR/${SESSION_ID}.jsonl"
 
-   # Symlink the session directory (contains subagents/ and tool-results/)
-   ln -s /path/to/found/${SESSION_ID} "$TARGET_DIR/${SESSION_ID}"
+   # Copy the session directory (contains subagents/ and tool-results/)
+   cp -r /path/to/found/${SESSION_ID} "$TARGET_DIR/${SESSION_ID}"
    ```
 
 6. **Verify** the session can now be resumed:
@@ -51,6 +51,6 @@ When a project directory is moved or renamed, Claude Code can't find existing se
 
 ## Important Notes
 
-- Each session has **two** artifacts: a `{SESSION_ID}.jsonl` file and a `{SESSION_ID}/` directory. Both must be symlinked.
+- Each session has **two** artifacts: a `{SESSION_ID}.jsonl` file and a `{SESSION_ID}/` directory. Both must be copied.
 - The session directory contains `subagents/` and `tool-results/` which are needed for full session context.
-- This creates symlinks, not copies — the original files stay in place.
+- This creates copies of the session files at the new path. The originals remain at the old path.

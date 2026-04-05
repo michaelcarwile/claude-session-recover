@@ -52,8 +52,12 @@ assert_not_exists() {
   if [ ! -e "$1" ]; then pass "$2"; else fail "$2" "unexpectedly exists: $1"; fi
 }
 
-assert_symlink() {
-  if [ -L "$1" ]; then pass "$2"; else fail "$2" "not a symlink: $1"; fi
+assert_regular_file() {
+  if [ -f "$1" ] && [ ! -L "$1" ]; then pass "$2"; else fail "$2" "not a regular file: $1"; fi
+}
+
+assert_directory() {
+  if [ -d "$1" ] && [ ! -L "$1" ]; then pass "$2"; else fail "$2" "not a regular directory: $1"; fi
 }
 
 assert_exit() {
@@ -93,13 +97,13 @@ sandbox
   NEW_ENC="-new-project-path"
 
   assert_exit 0 $RC "exits 0 on successful recovery"
-  assert_symlink "$FAKE_PROJECTS/$NEW_ENC/$SID.jsonl" "symlinks .jsonl file"
-  assert_symlink "$FAKE_PROJECTS/$NEW_ENC/$SID" "symlinks session directory"
-  assert_contains "$OUTPUT" "linked:" "prints linked message"
+  assert_regular_file "$FAKE_PROJECTS/$NEW_ENC/$SID.jsonl" "copies .jsonl file"
+  assert_directory "$FAKE_PROJECTS/$NEW_ENC/$SID" "copies session directory"
+  assert_contains "$OUTPUT" "copied:" "prints copied message"
 
-  # Verify content accessible through symlink
+  # Verify content accessible through copy
   CONTENT=$(cat "$FAKE_PROJECTS/$NEW_ENC/$SID/subagents/agent.jsonl" 2>/dev/null || echo "")
-  if [ "$CONTENT" = "data" ]; then pass "symlinked content is readable"; else fail "symlinked content is readable" "got: $CONTENT"; fi
+  if [ "$CONTENT" = "data" ]; then pass "copied content is readable"; else fail "copied content is readable" "got: $CONTENT"; fi
 cleanup
 
 echo ""
@@ -119,8 +123,8 @@ sandbox
   NEW_ENC="-Users-test-NewProject"
 
   assert_exit 0 $RC "exits 0 via history lookup"
-  assert_symlink "$FAKE_PROJECTS/$NEW_ENC/$SID.jsonl" "symlinks .jsonl via history"
-  assert_symlink "$FAKE_PROJECTS/$NEW_ENC/$SID" "symlinks session dir via history"
+  assert_regular_file "$FAKE_PROJECTS/$NEW_ENC/$SID.jsonl" "copies .jsonl via history"
+  assert_directory "$FAKE_PROJECTS/$NEW_ENC/$SID" "copies session dir via history"
 cleanup
 
 echo ""
@@ -136,8 +140,9 @@ sandbox
 
   assert_exit 0 $RC "exits 0 when session already exists"
   assert_empty "$OUTPUT" "produces no output for existing session"
-  # Verify it's still a regular file, not a symlink
-  if [ ! -L "$FAKE_PROJECTS/$ENC/$SID.jsonl" ]; then pass "does not replace existing file with symlink"; else fail "does not replace existing file with symlink"; fi
+  # Verify it's still the original file, not overwritten
+  CONTENT=$(cat "$FAKE_PROJECTS/$ENC/$SID.jsonl" 2>/dev/null)
+  if [ "$CONTENT" = '{"existing":true}' ]; then pass "does not overwrite existing file"; else fail "does not overwrite existing file" "got: $CONTENT"; fi
 cleanup
 
 echo ""
@@ -180,8 +185,8 @@ sandbox
   NEW_ENC="-new-path"
 
   assert_exit 0 $RC "exits 0 with jsonl-only session"
-  assert_symlink "$FAKE_PROJECTS/$NEW_ENC/$SID.jsonl" "symlinks .jsonl when no session dir"
-  assert_not_exists "$FAKE_PROJECTS/$NEW_ENC/$SID" "does not create symlink for missing session dir"
+  assert_regular_file "$FAKE_PROJECTS/$NEW_ENC/$SID.jsonl" "copies .jsonl when no session dir"
+  assert_not_exists "$FAKE_PROJECTS/$NEW_ENC/$SID" "does not create copy for missing session dir"
 cleanup
 
 echo ""
@@ -368,10 +373,10 @@ sandbox
   FAKE_BIN="$SANDBOX/bin"
   mkdir -p "$FAKE_BIN"
   NEW_ENC=$(printf '%s' "$SANDBOX/workdir" | sed 's|[^a-zA-Z0-9-]|-|g')
-  # Fake claude checks if the symlink exists at launch time
+  # Fake claude checks if the recovered file exists at launch time
   cat > "$FAKE_BIN/claude" <<SCRIPT
 #!/bin/sh
-if [ -L "$FAKE_PROJECTS/$NEW_ENC/$SID.jsonl" ]; then
+if [ -f "$FAKE_PROJECTS/$NEW_ENC/$SID.jsonl" ]; then
   echo "RECOVERY_HAPPENED_BEFORE_LAUNCH"
 else
   echo "NO_RECOVERY"

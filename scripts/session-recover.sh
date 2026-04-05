@@ -72,17 +72,17 @@ FOUND_SESSION_DIR="${FOUND_DIR}/${SESSION_ID}"
 # Create target directory if needed
 mkdir -p "$TARGET_DIR"
 
-# Symlink the .jsonl file
+# Copy the .jsonl file
 if [ ! -e "$TARGET_JSONL" ]; then
-  ln -s "$FOUND_JSONL" "$TARGET_JSONL"
-  echo "linked: ${FOUND_JSONL} -> ${TARGET_JSONL}"
+  cp "$FOUND_JSONL" "$TARGET_JSONL"
+  echo "copied: ${FOUND_JSONL} -> ${TARGET_JSONL}"
 fi
 
-# Symlink the session directory (subagents/, tool-results/) if it exists
+# Copy the session directory (subagents/, tool-results/) if it exists
 TARGET_SESSION_DIR="${TARGET_DIR}/${SESSION_ID}"
 if [ -d "$FOUND_SESSION_DIR" ] && [ ! -e "$TARGET_SESSION_DIR" ]; then
-  ln -s "$FOUND_SESSION_DIR" "$TARGET_SESSION_DIR"
-  echo "linked: ${FOUND_SESSION_DIR} -> ${TARGET_SESSION_DIR}"
+  cp -r "$FOUND_SESSION_DIR" "$TARGET_SESSION_DIR"
+  echo "copied: ${FOUND_SESSION_DIR} -> ${TARGET_SESSION_DIR}"
 fi
 
 exit 0

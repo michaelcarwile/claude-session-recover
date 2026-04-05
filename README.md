@@ -10,7 +10,7 @@ Anthropic has marked this as [NOT_PLANNED](https://github.com/anthropics/claude-
 
 ## How It Works
 
-Each session has two artifacts — a `{SESSION_ID}.jsonl` transcript file and a `{SESSION_ID}/` directory (containing `subagents/` and `tool-results/`). This plugin finds them under the old path and creates symlinks at the new expected path. It checks `~/.claude/history.jsonl` first for a fast lookup, then falls back to searching all project directories.
+Each session has two artifacts — a `{SESSION_ID}.jsonl` transcript file and a `{SESSION_ID}/` directory (containing `subagents/` and `tool-results/`). This plugin finds them under the old path and copies them to the new expected path. It checks `~/.claude/history.jsonl` first for a fast lookup, then falls back to searching all project directories.
 
 **Three layers of recovery:**
 
@@ -68,11 +68,11 @@ ls ~/.claude/projects/*/${SESSION_ID}.jsonl
 # Encode your current directory
 ENCODED=$(printf '%s' "$(pwd)" | sed 's|[^a-zA-Z0-9-]|-|g')
 
-# Create symlinks
+# Copy session files
 TARGET=~/.claude/projects/${ENCODED}
 mkdir -p "$TARGET"
-ln -s /path/to/old/${SESSION_ID}.jsonl "$TARGET/${SESSION_ID}.jsonl"
-ln -s /path/to/old/${SESSION_ID} "$TARGET/${SESSION_ID}"
+cp /path/to/old/${SESSION_ID}.jsonl "$TARGET/${SESSION_ID}.jsonl"
+cp -r /path/to/old/${SESSION_ID} "$TARGET/${SESSION_ID}"
 ```
 
 ## Uninstall
@@ -87,7 +87,7 @@ If you ran `/session-recover:setup`, also remove the `claude()` function from yo
 
 - Cannot intercept the `/resume` TUI command inside an active Claude session — only `claude --resume` from the shell
 - The SessionStart hook requires `jq` for JSON parsing (degrades gracefully to a no-op without it)
-- Symlinks point to the original files — if those are deleted, the session is lost
+- Recovery creates copies, so recovered sessions use additional disk space
 
 ## License
 

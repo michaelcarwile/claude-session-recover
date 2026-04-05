@@ -44,10 +44,10 @@ A shell script that:
 2. Encodes the current `pwd` to find the expected project directory under `~/.claude/projects/`
 3. Checks if `SESSION_ID.jsonl` exists there
 4. If not, searches all `~/.claude/projects/*/SESSION_ID.jsonl` for the session under any old path
-5. If found, symlinks the session file into the current project's directory
+5. If found, copies the session file into the current project's directory
 6. `exec`s `claude --resume SESSION_ID` with the path now correct
 
-Symlinks over copies: avoids doubling disk usage, keeps a single source of truth, and if the user renames the directory back the original path still works.
+Copies over symlinks: Claude Code does not recognize symlinked session files, so the recovery must produce actual files at the target path.
 
 ### 2. Setup Command — `/session-recover:setup`
 
@@ -69,7 +69,7 @@ In `hooks/hooks.json` with matcher `resume`:
 
 A skill that Claude can use when a user says "I can't resume my session" or "I moved my project":
 - Instructs Claude to search `~/.claude/projects/` for the session ID
-- Creates the appropriate symlinks using Bash tool calls
+- Creates copies of the session files using Bash tool calls
 - Works as a fallback for users who haven't set up the shell wrapper
 
 ## Plugin Structure
@@ -126,10 +126,10 @@ JSONL files named `{uuid}.jsonl` containing:
 
 ## Key Design Decisions
 
-- **Symlinks over copies** — Single source of truth, no disk bloat, reversible.
+- **Copies over symlinks** — Claude Code requires actual files, not symlinks, for session resolution.
 - **Plugin as distribution, shell wrapper as execution** — The plugin framework handles install/update/discovery; the wrapper does the actual pre-session interception.
 - **SessionStart hook as supplement** — Provides in-session awareness even though it can't do pre-session fixup.
-- **Cross-platform** — Must handle macOS, Linux, and optionally WSL. `sed`, `find`, `ln -s` are POSIX.
+- **Cross-platform** — Must handle macOS, Linux, and optionally WSL. `sed`, `find`, `cp` are POSIX.
 
 ## Sources
 
