@@ -75,6 +75,36 @@ cp /path/to/old/${SESSION_ID}.jsonl "$TARGET/${SESSION_ID}.jsonl"
 cp -r /path/to/old/${SESSION_ID} "$TARGET/${SESSION_ID}"
 ```
 
+## Export / Import
+
+Transfer a session between machines with portable archives.
+
+**Export** from the source machine:
+
+```
+/session-recover:export
+```
+
+This bundles one or more session files into a `~/claude-session-export-*.tar.gz` archive. You can export a specific session ID, `latest`, or `all`.
+
+**Import** on the target machine:
+
+```
+/session-recover:import
+```
+
+This extracts the archive and copies session files into `~/.claude/projects/` under the current directory's encoded path. Existing session files are skipped by default; use `--force` to overwrite.
+
+CLI usage (without slash commands):
+
+```bash
+# Export
+sh scripts/session-export.sh -o ~/export.tar.gz SESSION_ID
+
+# Import
+sh scripts/session-import.sh ~/export.tar.gz
+```
+
 ## Uninstall
 
 ```bash

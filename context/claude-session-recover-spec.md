@@ -72,6 +72,21 @@ A skill that Claude can use when a user says "I can't resume my session" or "I m
 - Creates copies of the session files using Bash tool calls
 - Works as a fallback for users who haven't set up the shell wrapper
 
+### 5. Export Script — `scripts/session-export.sh`
+
+Bundles one or more session files into a portable `.tar.gz` archive:
+- Accepts specific session IDs, `latest`, or `all`
+- Packages `.jsonl` transcript + session directory + filtered history metadata
+- Archive uses a path-neutral layout so it can be imported into any project
+- Default output: `~/claude-session-export-YYYYMMDD-HHMMSS.tar.gz`
+
+### 6. Import Script — `scripts/session-import.sh`
+
+Extracts a session archive and installs files under the current project path:
+- Copies `.jsonl` + session directory to `~/.claude/projects/[ENCODED_CWD]/`
+- Skips existing session files by default; `--force` overwrites
+- Merges history entries (rewrites `project` field, deduplicates by sessionId)
+
 ## Plugin Structure
 
 ```
@@ -82,14 +97,21 @@ claude-session-recover/
 │   └── hooks.json
 ├── scripts/
 │   ├── session-recover.sh        # Core recovery logic (shared by wrapper + skill)
+│   ├── session-export.sh         # Export session to portable archive
+│   ├── session-import.sh         # Import session from archive
 │   └── check-session-path.sh     # SessionStart hook script
 ├── commands/
-│   └── setup.md                  # /session-recover:setup slash command
+│   ├── setup.md                  # /session-recover:setup slash command
+│   ├── export.md                 # /session-recover:export slash command
+│   └── import.md                 # /session-recover:import slash command
 ├── skills/
 │   └── recover-session/
 │       └── SKILL.md              # Recovery skill for in-session use
+├── context/                      # Architectural docs and plans
 ├── bin/
 │   └── claude-resume             # Standalone wrapper script
+├── tests/
+│   └── run-tests.sh             # Test suite
 ├── README.md
 └── LICENSE
 ```

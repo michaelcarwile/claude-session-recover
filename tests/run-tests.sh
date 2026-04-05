@@ -10,6 +10,8 @@
 
 PLUGIN_DIR=$(cd "$(dirname "$0")/.." && pwd)
 RECOVER="$PLUGIN_DIR/scripts/session-recover.sh"
+EXPORT="$PLUGIN_DIR/scripts/session-export.sh"
+IMPORT="$PLUGIN_DIR/scripts/session-import.sh"
 HOOK="$PLUGIN_DIR/scripts/check-session-path.sh"
 WRAPPER="$PLUGIN_DIR/bin/claude-resume"
 
@@ -388,6 +390,321 @@ SCRIPT
   OUTPUT=$(cd "$SANDBOX/workdir" && HOME="$FAKE_HOME" PATH="$FAKE_BIN:$PATH" sh "$WRAPPER" --resume "$SID" 2>&1)
 
   assert_contains "$OUTPUT" "RECOVERY_HAPPENED_BEFORE_LAUNCH" "recovery runs before claude exec"
+cleanup
+
+# ── session-export.sh tests ─────────────────────────────────────────
+
+echo ""
+echo "=== session-export.sh ==="
+
+echo ""
+echo "-- Export a single session by ID --"
+sandbox
+  SID="export-single-001"
+  ENC="-export-project"
+  mkdir -p "$FAKE_PROJECTS/$ENC/$SID/subagents"
+  echo '{"type":"user"}' > "$FAKE_PROJECTS/$ENC/$SID.jsonl"
+  echo "agent-data" > "$FAKE_PROJECTS/$ENC/$SID/subagents/agent.jsonl"
+
+  OUTPUT_FILE="$SANDBOX/out.tar.gz"
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$EXPORT" -o "$OUTPUT_FILE" -C "/export/project" "$SID" 2>&1)
+  RC=$?
+
+  assert_exit 0 $RC "exits 0 on single session export"
+  assert_exists "$OUTPUT_FILE" "creates archive file"
+  # Verify archive contents
+  CONTENTS=$(tar tzf "$OUTPUT_FILE" 2>/dev/null)
+  assert_contains "$CONTENTS" "claude-session-export/session/${SID}.jsonl" "archive contains .jsonl"
+  assert_contains "$CONTENTS" "claude-session-export/session/${SID}/subagents/agent.jsonl" "archive contains session directory"
+  assert_contains "$CONTENTS" "claude-session-export/manifest.json" "archive contains manifest"
+cleanup
+
+echo ""
+echo "-- Export multiple session IDs --"
+sandbox
+  ENC="-multi-project"
+  SID1="export-multi-001"
+  SID2="export-multi-002"
+  mkdir -p "$FAKE_PROJECTS/$ENC"
+  echo '{"type":"user","id":"1"}' > "$FAKE_PROJECTS/$ENC/$SID1.jsonl"
+  echo '{"type":"user","id":"2"}' > "$FAKE_PROJECTS/$ENC/$SID2.jsonl"
+
+  OUTPUT_FILE="$SANDBOX/multi.tar.gz"
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$EXPORT" -o "$OUTPUT_FILE" -C "/multi/project" "$SID1" "$SID2" 2>&1)
+  RC=$?
+
+  assert_exit 0 $RC "exits 0 on multi-session export"
+  CONTENTS=$(tar tzf "$OUTPUT_FILE" 2>/dev/null)
+  assert_contains "$CONTENTS" "${SID1}.jsonl" "archive contains first session"
+  assert_contains "$CONTENTS" "${SID2}.jsonl" "archive contains second session"
+  assert_contains "$OUTPUT" "exported 2 session(s)" "reports correct count"
+cleanup
+
+echo ""
+echo "-- Export with 'latest' selector --"
+sandbox
+  ENC="-latest-project"
+  SID_OLD="export-old-001"
+  SID_NEW="export-new-002"
+  mkdir -p "$FAKE_PROJECTS/$ENC"
+  echo '{"type":"user","id":"old"}' > "$FAKE_PROJECTS/$ENC/$SID_OLD.jsonl"
+  sleep 1
+  echo '{"type":"user","id":"new"}' > "$FAKE_PROJECTS/$ENC/$SID_NEW.jsonl"
+
+  OUTPUT_FILE="$SANDBOX/latest.tar.gz"
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$EXPORT" -o "$OUTPUT_FILE" -C "/latest/project" latest 2>&1)
+  RC=$?
+
+  assert_exit 0 $RC "exits 0 with latest selector"
+  CONTENTS=$(tar tzf "$OUTPUT_FILE" 2>/dev/null)
+  assert_contains "$CONTENTS" "${SID_NEW}.jsonl" "archive contains the newest session"
+  assert_contains "$OUTPUT" "exported 1 session(s)" "exports exactly one session"
+cleanup
+
+echo ""
+echo "-- Export with 'all' selector --"
+sandbox
+  ENC="-all-project"
+  mkdir -p "$FAKE_PROJECTS/$ENC"
+  echo '{}' > "$FAKE_PROJECTS/$ENC/all-001.jsonl"
+  echo '{}' > "$FAKE_PROJECTS/$ENC/all-002.jsonl"
+  echo '{}' > "$FAKE_PROJECTS/$ENC/all-003.jsonl"
+
+  OUTPUT_FILE="$SANDBOX/all.tar.gz"
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$EXPORT" -o "$OUTPUT_FILE" -C "/all/project" all 2>&1)
+  RC=$?
+
+  assert_exit 0 $RC "exits 0 with all selector"
+  assert_contains "$OUTPUT" "exported 3 session(s)" "exports all three session files"
+cleanup
+
+echo ""
+echo "-- Export includes history metadata --"
+sandbox
+  ENC="-hist-project"
+  SID="export-hist-001"
+  mkdir -p "$FAKE_PROJECTS/$ENC"
+  echo '{"type":"user"}' > "$FAKE_PROJECTS/$ENC/$SID.jsonl"
+  echo "{\"sessionId\":\"${SID}\",\"project\":\"/hist/project\",\"display\":\"test session\"}" > "$FAKE_CLAUDE/history.jsonl"
+
+  OUTPUT_FILE="$SANDBOX/hist.tar.gz"
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$EXPORT" -o "$OUTPUT_FILE" -C "/hist/project" "$SID" 2>&1)
+  RC=$?
+
+  # Extract and check history
+  EXTRACT_DIR=$(mktemp -d)
+  tar xzf "$OUTPUT_FILE" -C "$EXTRACT_DIR"
+  assert_exists "$EXTRACT_DIR/claude-session-export/history.jsonl" "archive contains history.jsonl"
+  HIST_CONTENT=$(cat "$EXTRACT_DIR/claude-session-export/history.jsonl" 2>/dev/null)
+  assert_contains "$HIST_CONTENT" "$SID" "history contains session ID"
+  rm -rf "$EXTRACT_DIR"
+cleanup
+
+echo ""
+echo "-- Export nonexistent session --"
+sandbox
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$EXPORT" -o "$SANDBOX/nope.tar.gz" "nonexistent-id" 2>&1); RC=$?
+
+  assert_exit 1 $RC "exits 1 when session not found"
+  assert_not_exists "$SANDBOX/nope.tar.gz" "does not create archive on failure"
+cleanup
+
+echo ""
+echo "-- Export with no arguments --"
+sandbox
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$EXPORT" 2>&1); RC=$?
+
+  assert_exit 2 $RC "exits 2 with no arguments"
+  assert_contains "$OUTPUT" "Usage" "prints usage message"
+cleanup
+
+echo ""
+echo "-- Export session with .jsonl only (no directory) --"
+sandbox
+  ENC="-jsonl-only-export"
+  SID="export-nod-001"
+  mkdir -p "$FAKE_PROJECTS/$ENC"
+  echo '{"type":"user"}' > "$FAKE_PROJECTS/$ENC/$SID.jsonl"
+
+  OUTPUT_FILE="$SANDBOX/nod.tar.gz"
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$EXPORT" -o "$OUTPUT_FILE" -C "/jsonl/only/export" "$SID" 2>&1)
+  RC=$?
+
+  assert_exit 0 $RC "exits 0 with jsonl-only session"
+  CONTENTS=$(tar tzf "$OUTPUT_FILE" 2>/dev/null)
+  assert_contains "$CONTENTS" "${SID}.jsonl" "archive contains .jsonl"
+cleanup
+
+# ── session-import.sh tests ─────────────────────────────────────────
+
+echo ""
+echo "=== session-import.sh ==="
+
+echo ""
+echo "-- Import a valid archive --"
+sandbox
+  # Create an archive manually
+  SID="import-valid-001"
+  STAGE="$SANDBOX/stage"
+  mkdir -p "$STAGE/claude-session-export/session/$SID/subagents"
+  echo '{"type":"user"}' > "$STAGE/claude-session-export/session/$SID.jsonl"
+  echo "agent-data" > "$STAGE/claude-session-export/session/$SID/subagents/agent.jsonl"
+  printf '{"version":1}\n' > "$STAGE/claude-session-export/manifest.json"
+  ARCHIVE="$SANDBOX/import.tar.gz"
+  tar czf "$ARCHIVE" -C "$STAGE" claude-session-export
+
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$IMPORT" "$ARCHIVE" "/import/target" 2>&1)
+  RC=$?
+  TARGET_ENC="-import-target"
+
+  assert_exit 0 $RC "exits 0 on valid import"
+  assert_regular_file "$FAKE_PROJECTS/$TARGET_ENC/$SID.jsonl" "imports .jsonl file"
+  assert_directory "$FAKE_PROJECTS/$TARGET_ENC/$SID" "imports session directory"
+  CONTENT=$(cat "$FAKE_PROJECTS/$TARGET_ENC/$SID/subagents/agent.jsonl" 2>/dev/null)
+  if [ "$CONTENT" = "agent-data" ]; then pass "imported content is correct"; else fail "imported content is correct" "got: $CONTENT"; fi
+  assert_contains "$OUTPUT" "imported: $SID" "prints imported message"
+cleanup
+
+echo ""
+echo "-- Import skips existing session --"
+sandbox
+  SID="import-skip-001"
+  TARGET_ENC="-skip-target"
+  mkdir -p "$FAKE_PROJECTS/$TARGET_ENC"
+  echo '{"existing":true}' > "$FAKE_PROJECTS/$TARGET_ENC/$SID.jsonl"
+
+  STAGE="$SANDBOX/stage"
+  mkdir -p "$STAGE/claude-session-export/session"
+  echo '{"new":true}' > "$STAGE/claude-session-export/session/$SID.jsonl"
+  ARCHIVE="$SANDBOX/skip.tar.gz"
+  tar czf "$ARCHIVE" -C "$STAGE" claude-session-export
+
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$IMPORT" "$ARCHIVE" "/skip/target" 2>&1)
+  RC=$?
+
+  assert_exit 0 $RC "exits 0 when skipping"
+  # Verify original file was not overwritten
+  CONTENT=$(cat "$FAKE_PROJECTS/$TARGET_ENC/$SID.jsonl" 2>/dev/null)
+  if [ "$CONTENT" = '{"existing":true}' ]; then pass "does not overwrite existing session"; else fail "does not overwrite existing session" "got: $CONTENT"; fi
+  assert_contains "$OUTPUT" "skip" "prints skip message"
+  assert_contains "$OUTPUT" "skipped 1" "reports skipped count"
+cleanup
+
+echo ""
+echo "-- Import with --force overwrites --"
+sandbox
+  SID="import-force-001"
+  TARGET_ENC="-force-target"
+  mkdir -p "$FAKE_PROJECTS/$TARGET_ENC"
+  echo '{"old":true}' > "$FAKE_PROJECTS/$TARGET_ENC/$SID.jsonl"
+
+  STAGE="$SANDBOX/stage"
+  mkdir -p "$STAGE/claude-session-export/session"
+  echo '{"new":true}' > "$STAGE/claude-session-export/session/$SID.jsonl"
+  ARCHIVE="$SANDBOX/force.tar.gz"
+  tar czf "$ARCHIVE" -C "$STAGE" claude-session-export
+
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$IMPORT" --force "$ARCHIVE" "/force/target" 2>&1)
+  RC=$?
+
+  assert_exit 0 $RC "exits 0 with --force"
+  CONTENT=$(cat "$FAKE_PROJECTS/$TARGET_ENC/$SID.jsonl" 2>/dev/null)
+  if [ "$CONTENT" = '{"new":true}' ]; then pass "overwrites with --force"; else fail "overwrites with --force" "got: $CONTENT"; fi
+cleanup
+
+echo ""
+echo "-- Import merges history entries --"
+sandbox
+  SID="import-hist-001"
+  STAGE="$SANDBOX/stage"
+  mkdir -p "$STAGE/claude-session-export/session"
+  echo '{}' > "$STAGE/claude-session-export/session/$SID.jsonl"
+  echo "{\"sessionId\":\"${SID}\",\"project\":\"/old/path\",\"display\":\"test\"}" > "$STAGE/claude-session-export/history.jsonl"
+  ARCHIVE="$SANDBOX/hist.tar.gz"
+  tar czf "$ARCHIVE" -C "$STAGE" claude-session-export
+
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$IMPORT" "$ARCHIVE" "/new/path" 2>&1)
+  RC=$?
+
+  assert_exit 0 $RC "exits 0 with history merge"
+  assert_exists "$FAKE_CLAUDE/history.jsonl" "creates history.jsonl"
+  HIST=$(cat "$FAKE_CLAUDE/history.jsonl" 2>/dev/null)
+  assert_contains "$HIST" "$SID" "history contains session ID"
+  assert_contains "$HIST" "/new/path" "history has updated project path"
+cleanup
+
+echo ""
+echo "-- Import does not duplicate history entries --"
+sandbox
+  SID="import-dedup-001"
+  echo "{\"sessionId\":\"${SID}\",\"project\":\"/existing\"}" > "$FAKE_CLAUDE/history.jsonl"
+
+  STAGE="$SANDBOX/stage"
+  mkdir -p "$STAGE/claude-session-export/session"
+  echo '{}' > "$STAGE/claude-session-export/session/$SID.jsonl"
+  echo "{\"sessionId\":\"${SID}\",\"project\":\"/old\"}" > "$STAGE/claude-session-export/history.jsonl"
+  ARCHIVE="$SANDBOX/dedup.tar.gz"
+  tar czf "$ARCHIVE" -C "$STAGE" claude-session-export
+
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$IMPORT" --force "$ARCHIVE" "/existing" 2>&1)
+  RC=$?
+
+  HIST_COUNT=$(grep -c "\"sessionId\":\"${SID}\"" "$FAKE_CLAUDE/history.jsonl" 2>/dev/null || echo 0)
+  if [ "$HIST_COUNT" -eq 1 ]; then pass "does not duplicate history entry"; else fail "does not duplicate history entry" "found $HIST_COUNT entries"; fi
+cleanup
+
+echo ""
+echo "-- Import missing archive --"
+sandbox
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$IMPORT" "/nonexistent/archive.tar.gz" 2>&1); RC=$?
+
+  assert_exit 1 $RC "exits 1 when archive not found"
+  assert_contains "$OUTPUT" "not found" "prints not-found error"
+cleanup
+
+echo ""
+echo "-- Import invalid archive --"
+sandbox
+  echo "not a tarball" > "$SANDBOX/bad.tar.gz"
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$IMPORT" "$SANDBOX/bad.tar.gz" 2>&1); RC=$?
+
+  assert_exit 2 $RC "exits 2 on invalid archive"
+cleanup
+
+echo ""
+echo "-- Import with no arguments --"
+sandbox
+  OUTPUT=$(HOME="$FAKE_HOME" sh "$IMPORT" 2>&1); RC=$?
+
+  assert_exit 2 $RC "exits 2 with no arguments"
+  assert_contains "$OUTPUT" "Usage" "prints usage message"
+cleanup
+
+echo ""
+echo "-- Round-trip: export then import --"
+sandbox
+  SID="roundtrip-001"
+  SRC_ENC="-source-project"
+  DST_ENC="-dest-project"
+  mkdir -p "$FAKE_PROJECTS/$SRC_ENC/$SID/tool-results"
+  echo '{"type":"user","message":"hello"}' > "$FAKE_PROJECTS/$SRC_ENC/$SID.jsonl"
+  echo "result-data" > "$FAKE_PROJECTS/$SRC_ENC/$SID/tool-results/result.txt"
+
+  # Export
+  ARCHIVE="$SANDBOX/roundtrip.tar.gz"
+  HOME="$FAKE_HOME" sh "$EXPORT" -o "$ARCHIVE" "$SID" >/dev/null 2>&1
+
+  # Import to a different project path
+  HOME="$FAKE_HOME" sh "$IMPORT" "$ARCHIVE" "/dest/project" >/dev/null 2>&1
+
+  # Verify content is identical
+  ORIG=$(cat "$FAKE_PROJECTS/$SRC_ENC/$SID.jsonl")
+  IMPORTED=$(cat "$FAKE_PROJECTS/$DST_ENC/$SID.jsonl" 2>/dev/null)
+  if [ "$ORIG" = "$IMPORTED" ]; then pass "round-trip preserves .jsonl content"; else fail "round-trip preserves .jsonl content"; fi
+
+  ORIG_RESULT=$(cat "$FAKE_PROJECTS/$SRC_ENC/$SID/tool-results/result.txt")
+  IMPORTED_RESULT=$(cat "$FAKE_PROJECTS/$DST_ENC/$SID/tool-results/result.txt" 2>/dev/null)
+  if [ "$ORIG_RESULT" = "$IMPORTED_RESULT" ]; then pass "round-trip preserves session directory content"; else fail "round-trip preserves session directory content"; fi
 cleanup
 
 # ── Summary ──────────────────────────────────────────────────────────
