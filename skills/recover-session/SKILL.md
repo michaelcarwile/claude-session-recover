@@ -14,9 +14,9 @@ When a project directory is moved or renamed, Claude Code can't find existing se
    ls -lt ~/.claude/projects/*//*.jsonl | head -20
    ```
 
-2. **Encode the current working directory** by replacing `/` with `-`:
+2. **Encode the current working directory** by replacing non-alphanumeric characters with `-`:
    ```bash
-   ENCODED=$(printf '%s' "$(pwd)" | sed 's|/|-|g')
+   ENCODED=$(printf '%s' "$(pwd)" | sed 's|[^a-zA-Z0-9-]|-|g')
    ```
 
 3. **Check if the session already exists** at the expected path:

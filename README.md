@@ -4,7 +4,7 @@ A Claude Code plugin that automatically recovers sessions after a project direct
 
 ## The Problem
 
-Claude Code stores session transcripts under `~/.claude/projects/` in directories named after path-encoded project directories (`/` replaced with `-`). When you move or rename a project, `claude --resume SESSION_ID` fails because the session files still live under the old encoded path.
+Claude Code stores session transcripts under `~/.claude/projects/` in directories named after path-encoded project directories (non-alphanumeric characters replaced with `-`). When you move or rename a project, `claude --resume SESSION_ID` fails because the session files still live under the old encoded path.
 
 Anthropic has marked this as [NOT_PLANNED](https://github.com/anthropics/claude-code/issues/1983).
 
@@ -66,7 +66,7 @@ If you prefer to recover a session manually:
 ls ~/.claude/projects/*/${SESSION_ID}.jsonl
 
 # Encode your current directory
-ENCODED=$(printf '%s' "$(pwd)" | sed 's|/|-|g')
+ENCODED=$(printf '%s' "$(pwd)" | sed 's|[^a-zA-Z0-9-]|-|g')
 
 # Create symlinks
 TARGET=~/.claude/projects/${ENCODED}

@@ -107,7 +107,7 @@ echo "-- Recovery via history.jsonl lookup --"
 sandbox
   SID="session-hist-002"
   OLD_PROJECT="/Users/test/OldProject"
-  OLD_ENC=$(printf '%s' "$OLD_PROJECT" | sed 's|/|-|g')
+  OLD_ENC=$(printf '%s' "$OLD_PROJECT" | sed 's|[^a-zA-Z0-9-]|-|g')
   mkdir -p "$FAKE_PROJECTS/$OLD_ENC/$SID/tool-results"
   echo '{"type":"user"}' > "$FAKE_PROJECTS/$OLD_ENC/$SID.jsonl"
 
@@ -367,7 +367,7 @@ sandbox
 
   FAKE_BIN="$SANDBOX/bin"
   mkdir -p "$FAKE_BIN"
-  NEW_ENC=$(printf '%s' "$SANDBOX/workdir" | sed 's|/|-|g')
+  NEW_ENC=$(printf '%s' "$SANDBOX/workdir" | sed 's|[^a-zA-Z0-9-]|-|g')
   # Fake claude checks if the symlink exists at launch time
   cat > "$FAKE_BIN/claude" <<SCRIPT
 #!/bin/sh

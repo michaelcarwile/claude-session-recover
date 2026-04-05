@@ -25,8 +25,8 @@ if [ ! -d "$CLAUDE_DIR" ]; then
   exit 2
 fi
 
-# Encode CWD: replace / with -
-ENCODED_CWD=$(printf '%s' "$CWD" | sed 's|/|-|g')
+# Encode CWD: replace all non-alphanumeric characters (except -) with -
+ENCODED_CWD=$(printf '%s' "$CWD" | sed 's|[^a-zA-Z0-9-]|-|g')
 TARGET_DIR="${CLAUDE_DIR}/${ENCODED_CWD}"
 TARGET_JSONL="${TARGET_DIR}/${SESSION_ID}.jsonl"
 
@@ -43,7 +43,7 @@ if [ -f "$HISTORY_FILE" ]; then
   # Extract the project path for this session ID from history (POSIX: grep + sed)
   ORIGINAL_PROJECT=$(grep "\"sessionId\":\"${SESSION_ID}\"" "$HISTORY_FILE" | head -n 1 | sed 's/.*"project":"\([^"]*\)".*/\1/')
   if [ -n "$ORIGINAL_PROJECT" ]; then
-    ORIGINAL_ENCODED=$(printf '%s' "$ORIGINAL_PROJECT" | sed 's|/|-|g')
+    ORIGINAL_ENCODED=$(printf '%s' "$ORIGINAL_PROJECT" | sed 's|[^a-zA-Z0-9-]|-|g')
     CANDIDATE="${CLAUDE_DIR}/${ORIGINAL_ENCODED}/${SESSION_ID}.jsonl"
     if [ -e "$CANDIDATE" ]; then
       FOUND_JSONL="$CANDIDATE"
